@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mein Kanban Board</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f5f7;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .input-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      width: 300px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 15px;
+      font-size: 16px;
+      background-color: #0052cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #00388b;
+    }
+    .board {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+    }
+    .column {
+      background-color: #ebecf0;
+      border-radius: 8px;
+      width: 300px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .column h2 {
+      font-size: 18px;
+      color: #5e6c84;
+      border-bottom: 2px solid #ccc;
+      padding-bottom: 8px;
+    }
+    .card {
+      background-color: white;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-actions {
+      display: flex;
+      gap: 5px;
+    }
+    .card-actions button {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .btn-delete {
+      background-color: #de350b;
+    }
+    .btn-delete:hover {
+      background-color: #bf2600;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Mein Kanban Board</h1>
+
+  <!-- Eingabeformular für neue Aufgaben -->
+  <div class="input-container">
+    <input type="text" id="taskTitle" placeholder="Neue Aufgabe eingeben...">
+    <button onclick="addTask()">Hinzufügen</button>
+  </div>
+
+  <!-- Die 3 Kanban-Spalten -->
+  <div class="board">
+    <div class="column">
+      <h2>Offen (To Do)</h2>
+      <div id="todo-list"></div>
+    </div>
+
+    <div class="column">
+      <h2>In Bearbeitung</h2>
+      <div id="in_progress-list"></div>
+    </div>
+
+    <div class="column">
+      <h2>Erledigt (Done)</h2>
+      <div id="done-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/tasks';
+
+    // 1. READ: Aufgaben von der API abrufen und anzeigen
+    async function loadTasks() {
+      const response = await fetch(API_URL);
+      const tasks = await response.json();
+
+      // Listen leeren
+      document.getElementById('todo-list').innerHTML = '';
+      document.getElementById('in_progress-list').innerHTML = '';
+      document.getElementById('done-list').innerHTML = '';
+
+      tasks.forEach(task => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <span>${task.title}</span>
+          <div class="card-actions">
+            ${getButtons(task)}
+            <button class="btn-delete" onclick="deleteTask(${task.id})">✕</button>
+          </div>
+        `;
+
+        document.getElementById(`${task.status}-list`).appendChild(card);
+      });
+    }
+
+    // Hilfsfunktion für Aktions-Buttons (Verschieben zwischen den Spalten)
+    function getButtons(task) {
+      if (task.status === 'todo') {
+        return `<button onclick="updateStatus(${task.id}, 'in_progress')">→</button>`;
+      } else if (task.status === 'in_progress') {
+        return `
+          <button onclick="updateStatus(${task.id}, 'todo')">←</button>
+          <button onclick="updateStatus(${task.id}, 'done')">→</button>
+        `;
+      } else if (task.status === 'done') {
+        return `<button onclick="updateStatus(${task.id}, 'in_progress')">←</button>`;
+      }
+    }
+
+    // 2. CREATE: Neue Aufgabe erstellen
+    async function addTask() {
+      const input = document.getElementById('taskTitle');
+      const title = input.value.trim();
+      if (!title) return;
+
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title })
+      });
+
+      input.value = '';
+      loadTasks(); // Anzeige aktualisieren
+    }
+
+    // 3. UPDATE: Status einer Aufgabe ändern
+    async function updateStatus(id, newStatus) {
+      await fetch(`${API_URL}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      loadTasks(); // Anzeige aktualisieren
+    }
+
+    // 4. DELETE: Aufgabe löschen
+    async function deleteTask(id) {
+      await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE'
+      });
+
+      loadTasks(); // Anzeige aktualisieren
+    }
+
+    // Beim Laden der Seite direkt alle Aufgaben abrufen
+    loadTasks();
+  </script>
+
+</body>
+</html>
